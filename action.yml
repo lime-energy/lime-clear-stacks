@@ -1,0 +1,16 @@
+name: 'Clear Stacks Resources'
+description: 'Clear Stacks Resources filtering by tag - Only S3 and DynamoDB Tables for now'
+inputs:
+  tags:
+    description: 'Tags to filter stacks'
+    required: true
+  tags-exclude:
+    description: 'Tags to exclude resources'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - run: python -m pip install boto3
+      shell: bash
+    - run: python ${{ github.action_path }}/main.py --tags ${{ inputs.tags }} --tags-exclude ${{ inputs.tags-exclude }}
+      shell: bash
