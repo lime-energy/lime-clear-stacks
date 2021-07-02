@@ -6,7 +6,7 @@ import boto3
 cfn = boto3.client('cloudformation')
 s3 = boto3.resource('s3')
 dynamodb = boto3.resource('dynamodb')
-
+test_mode = False
 
 def aws_tags_to_set(tags):
     """Convert a list of AWS Tag objects to a python set
@@ -114,32 +114,45 @@ def get_resources(stack, tags_exclude: Set[str]) -> Tuple[List[str], List[str]]:
 
 def clear_buckets(buckets):
     for bucket_name in buckets:
-        print('└─Bucket:', bucket_name)
-
-        # bucket = s3.Bucket(bucket_name)
-        # bucket.objects.all().delete()
+        if test_mode:
+            print('└─Bucket:', bucket_name)
+        else:
+            bucket = s3.Bucket(bucket_name)
+            bucket.objects.all().delete()
 
 def clear_dynamo_tables(dynamo_tables):
     for table_name in dynamo_tables:
-        print('└─Table:', table_name)
-
-        # table = dynamodb.Table(table_name)
-        # primary_key = [x.get('AttributeName') for x in table.key_schema]
-        # scan = table.scan(AttributesToGet=primary_key)
-        # with table.batch_writer() as batch:
-        #     for each in scan['Items']:
-        #         batch.delete_item(Key=each)
+        if test_mode:
+            print('└─Table:', table_name)
+        else:
+            table = dynamodb.Table(table_name)
+            primary_key = [x.get('AttributeName') for x in table.key_schema]
+            scan = table.scan(AttributesToGet=primary_key)
+            with table.batch_writer() as batch:
+                for each in scan['Items']:
+                    batch.delete_item(Key=each)
 
 def run(tags_include: Set[str], tags_exclude: Set[str]):
     for stack in get_stacks(tags_include):
-        print('Stack:', stack.get('StackName'))
-        print('Resources:')
+        if test_mode:
+            print()
+            print('######################################')
+            print('Stack:', stack.get('StackName'))
+            print('Resources:')
 
         (buckets, dynamo_tables) = get_resources(stack, tags_exclude)
         clear_buckets(buckets)
         clear_dynamo_tables(dynamo_tables)
-        print('######################################')
-        print()
+
+def _str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 def _get_args():
     parser = argparse.ArgumentParser(description=(
@@ -148,12 +161,20 @@ def _get_args():
 
     parser.add_argument('--tags', nargs='+', help='Param description', default='', required=True)
     parser.add_argument('--tags-exclude', nargs='+', help='Param description', default='', required=False)
+    parser.add_argument("--dry-run", type=_str2bool, nargs='?', const=True, default=False)
 
     return parser.parse_args()
 
 
 def main():
     args = _get_args()
+    global test_mode
+    test_mode = args.dry_run
+
+    if test_mode:
+        print('Running in dry-run mode - Nothing will be removed')
+    else:
+        print('Removing data...')
 
     run(set(args.tags), set(args.tags_exclude))
 
