@@ -114,17 +114,15 @@ def get_resources(stack, tags_exclude: Set[str]) -> Tuple[List[str], List[str]]:
 
 def clear_buckets(buckets):
     for bucket_name in buckets:
-        if test_mode:
-            print('└─Bucket:', bucket_name)
-        else:
+        print('└─Bucket:', bucket_name)
+        if not test_mode:
             bucket = s3.Bucket(bucket_name)
             bucket.objects.all().delete()
 
 def clear_dynamo_tables(dynamo_tables):
     for table_name in dynamo_tables:
-        if test_mode:
-            print('└─Table:', table_name)
-        else:
+        print('└─Table:', table_name)
+        if not test_mode:
             table = dynamodb.Table(table_name)
             primary_key = [x.get('AttributeName') for x in table.key_schema]
             scan = table.scan(AttributesToGet=primary_key)
@@ -134,11 +132,10 @@ def clear_dynamo_tables(dynamo_tables):
 
 def run(tags_include: Set[str], tags_exclude: Set[str]):
     for stack in get_stacks(tags_include):
-        if test_mode:
-            print()
-            print('######################################')
-            print('Stack:', stack.get('StackName'))
-            print('Resources:')
+        print()
+        print('######################################')
+        print('Stack:', stack.get('StackName'))
+        print('Resources:')
 
         (buckets, dynamo_tables) = get_resources(stack, tags_exclude)
         clear_buckets(buckets)
@@ -174,7 +171,7 @@ def main():
     if test_mode:
         print('Running in dry-run mode - Nothing will be removed')
     else:
-        print('Removing data...')
+        print('Removing data from:')
 
     run(set(args.tags), set(args.tags_exclude))
 
